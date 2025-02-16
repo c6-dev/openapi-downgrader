@@ -84,13 +84,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="openapi-downgrader.cpp" />
-    <ClCompile Include="Converter.cpp" />
-    <ClCompile Include="Util.cpp" />
+    <ClCompile Include="code/openapi-downgrader.cpp" />
+    <ClCompile Include="code/Converter.cpp" />
+    <ClCompile Include="code/Util.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Converter.h" />
-    <ClInclude Include="Util.h" />
+    <ClInclude Include="code/Converter.h" />
+    <ClInclude Include="code/Util.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

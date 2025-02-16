@@ -15,21 +15,21 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ApiConverter.cpp">
+    <ClCompile Include="code/openapi-downgrader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="converter.cpp">
+    <ClCompile Include="code/Converter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Util.cpp">
+    <ClCompile Include="code/Util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="converter.h">
+    <ClInclude Include="code/Converter.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="Util.h">
+    <ClInclude Include="code/Util.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
