@@ -15,9 +15,9 @@ namespace util {
 
         URL result;
         if (std::regex_match(url, match, r_url)) {
-            result.protocol = match[1].str();  // "http" or "https"
-            result.host = match[2].str();      // "demo.example.com"
-            result.path = match[3].matched ? match[3].str() : "/"; // Default to "/" if no path
+            result.protocol = match[1].str();
+            result.host = match[2].str();   
+            result.path = match[3].matched ? match[3].str() : "/"; 
         }
         return result;
     }

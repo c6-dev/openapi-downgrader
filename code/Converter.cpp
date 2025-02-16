@@ -24,11 +24,10 @@ YAML::Node Converter::ResolveReference(YAML::Node obj, bool shouldClone) {
 }
 void Converter::ConvertInfos() {
     if (input["servers"] && input["servers"][0]) {
-        YAML::Node server = input["servers"][0]; // First server object
+        YAML::Node server = input["servers"][0];
         std::string serverUrl = server["url"].as<std::string>();
         YAML::Node variables = server["variables"];
 
-        // Iterate over variables
         if (variables && variables.IsMap()) {
             for (auto it = variables.begin(); it != variables.end(); ++it) {
                 std::string variableName = it->first.as<std::string>();
@@ -37,7 +36,6 @@ void Converter::ConvertInfos() {
                 if (variableObject["default"]) {
                     std::string defaultValue = variableObject["default"].as<std::string>();
 
-                    // Replace `{variableName}` with `defaultValue` in serverUrl
                     std::string placeholder = "{" + variableName + "}";
                     size_t pos = 0;
                     while ((pos = serverUrl.find(placeholder, pos)) != std::string::npos) {
