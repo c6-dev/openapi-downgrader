@@ -1,5 +1,6 @@
 # openapi-downgrader  
-Downgrades a file containing YAML API spec from OpenAPI 3.0 to Swagger 2.0 format.  
+A CLI tool that converts OpenAPI 3.0 YAML to Swagger 2.0 format.  
+
 Made for personal use and hasn't been thoroughly tested. Something like [editor.swagger.io](https://editor.swagger.io) should always be used to verify the output. 
 
 Usage: `openapi-downgrader.exe input.yaml output.yaml`  
