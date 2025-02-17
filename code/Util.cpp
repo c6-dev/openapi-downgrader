@@ -14,6 +14,7 @@ namespace util {
         std::smatch match;
 
         URL result;
+        result.path = url;
         if (std::regex_match(url, match, r_url)) {
             result.protocol = match[1].str();
             result.host = match[2].str();   
