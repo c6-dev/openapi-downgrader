@@ -8,7 +8,7 @@ openapi-downgrader.exe input.yaml output.yaml
 
 Use [editor.swagger.io](https://editor.swagger.io) to verify the output. 
 
-External references, whether files our remote resources, are currently NOT supported - the input YAML must contain the entire spec.  
+External references, both files and remote resources, are currently NOT supported - the input YAML must contain the entire spec.  
 
 Loosely based on [api-spec-converter](https://github.com/LucyBot-Inc/api-spec-converter), but trimmed down and rewritten in C++ for speed and ease of use. 
 
