@@ -1,5 +1,5 @@
 # openapi-downgrader  
-A CLI tool that converts OpenAPI 3.0 YAML to Swagger 2.0 format.  
+A CLI tool that converts OpenAPI 3.0+ YAML to Swagger 2.0 format.  
 
 ### Usage  
 ```
