@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include "yaml-cpp/yaml.h"
 
 class Converter {
@@ -8,11 +9,12 @@ public:
     std::string Convert(const std::string& source);
 private:
     YAML::Node input;
-	void ConvertInfos();
+    YAML::Node components;
+    void ConvertInfos();
     YAML::Node ResolveReference(YAML::Node obj, bool shouldClone);
     void ConvertParameters(YAML::Node& obj);
     void ConvertOperations();
-    void CopySchemaProperties(YAML::Node& node, std::vector<std::string> props);
+    void CopySchemaProperties(YAML::Node& node, const std::vector<std::string>& props);
     void CopySchemaXProperties(YAML::Node& node);
     void ConvertOperationParameters(YAML::Node& operation);
     void ConvertSchema(YAML::Node def, const std::string& operationDirection);

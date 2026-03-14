@@ -4,24 +4,44 @@
 #include <regex>
 #include "yaml-cpp/yaml.h"
 
-const std::array<std::string, 8> http_methods = {"get", "put", "post", "delete", "options", "head", "patch", "trace"};
+const std::array<std::string, 8> http_methods = { "get", "put", "post", "delete", "options", "head", "patch", "trace" };
 const std::vector<std::string> schema_properties = { "format", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength", "multipleOf", "minItems", "maxItems", "uniqueItems", "minProperties", "maxProperties", "additionalProperties", "pattern", "enum", "default" };
 const std::vector<std::string> array_properties = { "type", "items" };
 
 
 YAML::Node Converter::ResolveReference(YAML::Node obj, bool shouldClone) {
 
-	if (!obj || !obj["$ref"]) return obj;
+    if (!obj || !obj["$ref"]) return obj;
     auto ref = obj["$ref"].as<std::string>();
-    if (ref[0]=='#') {
+    if (ref[0] == '#') {
         std::vector<std::string> keys = util::SplitAndDecode(ref);
-        YAML::Node cur = obj;
-        YAML::Node result = util::Navigate(cur, keys);
 
-        return shouldClone ? YAML::Clone(result) : result;
+        YAML::Node result;
+        if (keys.size() >= 1 && keys[0] == "components" && components) {
+            std::vector<std::string> subKeys(keys.begin() + 1, keys.end());
+            YAML::Node compCopy = YAML::Clone(components);
+            result = util::Navigate(compCopy, subKeys);
+        }
+        else {
+            result = util::Navigate(input, keys);
+        }
+
+        if (!result) {
+            std::cerr << "Failed to resolve $ref: " << ref << std::endl;
+            return obj;
+        }
+
+        result = shouldClone ? YAML::Clone(result) : result;
+
+        if (result["$ref"]) {
+            return ResolveReference(result, shouldClone);
+        }
+
+        return result;
     }
     return obj;
 }
+
 void Converter::ConvertInfos() {
     if (input["servers"] && input["servers"][0]) {
         YAML::Node server = input["servers"][0];
@@ -46,22 +66,22 @@ void Converter::ConvertInfos() {
             }
         }
         util::URL parsed = util::ParseURL(serverUrl);
-		if (parsed.host.empty()) {
-			input.remove("host");
-		}
-		else {
-			input["host"] = parsed.host;
-		}
+        if (parsed.host.empty()) {
+            input.remove("host");
+        }
+        else {
+            input["host"] = parsed.host;
+        }
         if (parsed.protocol.empty()) {
-			input.remove("schemes");
-		}
+            input.remove("schemes");
+        }
         else {
             input["schemes"] = YAML::Node(YAML::NodeType::Sequence);
             input["schemes"].push_back(parsed.protocol);
         }
-		input["basePath"] = parsed.path;
+        input["basePath"] = parsed.path;
     }
-	input.remove("servers");
+    input.remove("servers");
     input.remove("openapi");
 }
 
@@ -155,6 +175,11 @@ void Converter::ConvertSchema(YAML::Node def, const std::string& operationDirect
         }
     }
 
+    if (def["enum"]) {
+        def["x-extensible-enum"] = def["enum"];
+        def.remove("enum");
+    }
+
     if (def["nullable"]) {
         def["x-nullable"] = true;
         def.remove("nullable");
@@ -168,27 +193,28 @@ void Converter::ConvertSchema(YAML::Node def, const std::string& operationDirect
     }
 }
 
-
 void Converter::ConvertOperationParameters(YAML::Node& operation) {
     YAML::Node content, param;
     std::string contentKey;
     std::vector<std::string> mediaRanges, mediaTypes;
 
-    if (!operation["parameters"]) {
-        operation["parameters"] = YAML::Node(YAML::NodeType::Sequence);
+    YAML::Node resolvedParams = YAML::Node(YAML::NodeType::Sequence);
+    if (operation["parameters"]) {
+        for (std::size_t i = 0; i < operation["parameters"].size(); ++i) {
+            resolvedParams.push_back(ResolveReference(operation["parameters"][i], true));
+        }
     }
+    operation.remove("parameters");
+    operation["parameters"] = resolvedParams;
 
     if (operation["requestBody"]) {
         param = ResolveReference(operation["requestBody"], true);
 
-        // Fixing external $ref in body
-        if (operation["requestBody"]["content"]) {
-            auto supportedMimeTypes = util::GetSupportedMimeTypes(operation["requestBody"]["content"]);
+        if (param["content"]) {
+            auto supportedMimeTypes = util::GetSupportedMimeTypes(param["content"]);
             if (!supportedMimeTypes.empty()) {
                 std::string type = supportedMimeTypes[0];
-                YAML::Node structuredObj = YAML::Node(YAML::NodeType::Map);
-                structuredObj["content"] = YAML::Node(YAML::NodeType::Map);
-                YAML::Node data = operation["requestBody"]["content"][type];
+                YAML::Node data = param["content"][type];
 
                 if (data && data["schema"] && data["schema"]["$ref"] && data["schema"]["$ref"].as<std::string>()[0] != '#') {
                     std::cerr << "external refs aren't supported" << std::endl;
@@ -209,7 +235,6 @@ void Converter::ConvertOperationParameters(YAML::Node& operation) {
                 if (contentKey == "application/x-www-form-urlencoded" || contentKey == "multipart/form-data") {
                     operation["consumes"] = mediaTypes;
                     param["in"] = "formData";
-                    param["schema"] = content[contentKey]["schema"];
                     param["schema"] = ResolveReference(content[contentKey]["schema"], true);
                     if (param["schema"]["type"].as<std::string>() == "object" && param["schema"]["properties"]) {
                         auto required = param["schema"]["required"];
@@ -278,7 +303,6 @@ void Converter::ConvertResponses(YAML::Node& operation) {
             for (auto contentIt = response["content"].begin(); contentIt != response["content"].end(); ++contentIt) {
                 auto mediaRange = contentIt->first.as<std::string>();
                 auto mediaType = (mediaRange.find('*') == std::string::npos) ? mediaRange : "application/octet-stream";
-                auto produces = operation["produces"];
                 if (!operation["produces"]) {
                     operation["produces"] = YAML::Node(YAML::NodeType::Sequence);
                     operation["produces"].push_back(mediaType);
@@ -315,7 +339,6 @@ void Converter::ConvertResponses(YAML::Node& operation) {
 
             if (anySchema) {
                 response["schema"] = jsonSchema.IsNull() == false ? jsonSchema : anySchema;
-
                 ConvertSchema(response["schema"], "response");
             }
         }
@@ -336,22 +359,20 @@ void Converter::ConvertResponses(YAML::Node& operation) {
         }
         response.remove("content");
         operation["responses"][code] = response;
-        
     }
 }
 
-void Converter::ConvertOperations(){
+void Converter::ConvertOperations() {
     YAML::Node paths = input["paths"];
     for (auto path = paths.begin(); path != paths.end(); ++path) {
-        YAML::Node pathObject = ResolveReference(path->second, true);
+        YAML::Node pathObject = path->second;
 
-        
         ConvertParameters(pathObject);
         for (auto method = pathObject.begin(); method != pathObject.end(); ++method) {
             std::string methodName = method->first.as<std::string>();
             auto it = std::find(http_methods.begin(), http_methods.end(), methodName);
             if (it != http_methods.end()) {
-                auto operation = ResolveReference(method->second, true);
+                auto& operation = method->second;
                 ConvertOperationParameters(operation);
                 ConvertResponses(operation);
             }
@@ -359,76 +380,82 @@ void Converter::ConvertOperations(){
     }
 }
 
-void Converter::CopySchemaProperties (YAML::Node& node, std::vector<std::string> props) {
+void Converter::CopySchemaProperties(YAML::Node& node, const std::vector<std::string>& props) {
     auto schema = ResolveReference(node["schema"], true);
     if (!schema) return;
-    for (auto it : props)
-    {
-        auto value = schema[it.data()];
-        if (value)
-        {
-            node[it.data()] = value;
+    for (const auto& prop : props) {
+        auto value = schema[prop];
+        if (value) {
+            node[prop] = value;
         }
     }
-} 
+}
 
 void Converter::CopySchemaXProperties(YAML::Node& node)
 {
     auto schema = ResolveReference(node["schema"], true);
-    for (const auto &kv: schema) {
+    for (const auto& kv : schema) {
         auto propName = kv.first.as<std::string>();
         if (propName.rfind("x-", 0) == 0 && schema[propName] && !node[propName])
             node[propName] = kv.second;
-        }
-} 
+    }
+}
 
 void Converter::ConvertParameters(YAML::Node& obj)
-{ 
+{
     if (!obj["parameters"]) return;
     auto params = obj["parameters"];
-    for (const auto& item : params) {
-        YAML::Node param = ResolveReference(item, false);
-        
+    for (std::size_t i = 0; i < params.size(); ++i) {
+        YAML::Node param = ResolveReference(params[i], false);
+
+        if (!param["in"] || !param["in"].IsScalar()) {
+            std::cerr << "[ConvertParameters] Skipping parameter with missing or invalid 'in' field" << std::endl;
+            continue;
+        }
         std::string in = param["in"].as<std::string>();
         if (in != "body") {
             CopySchemaProperties(param, schema_properties);
             CopySchemaProperties(param, array_properties);
             CopySchemaXProperties(param);
-            if (!param["description"])
-            {
+            if (!param["description"]) {
                 auto schema = ResolveReference(param["schema"], false);
-                if (schema && schema["description"])
-                {
+                if (schema && schema["description"]) {
                     param["description"] = schema["description"];
                 }
             }
             param.remove("schema");
             param.remove("allowReserved");
-            if (param["example"])
-            {
+            if (param["example"]) {
                 param["x-example"] = param["example"];
                 param.remove("example");
             }
+            if (param["enum"]) {
+                param["x-extensible-enum"] = param["enum"];
+                param.remove("enum");
+            }
         }
-        if (param["type"] && param["type"].as<std::string>() == "array")
-        {
+        if (param["type"] && param["type"].as<std::string>() == "array") {
             std::string style;
 
-            if (param["style"])
-            {
+            if (param["style"]) {
                 style = param["style"].as<std::string>();
-            } else if (in == "query" || in == "cookie")
-	        {
-                style = "form";
-	        } else
-	        {
-                style = "simple";
-	        }
-            std::string explode = param["explode"].as<std::string>();
-            if (style == "matrix") {
-                if (param["explode"]) param["collectionFormat"] = "csv";
             }
-            else if (style == "simple") {
+            else if (in == "query" || in == "cookie") {
+                style = "form";
+            }
+            else {
+                style = "simple";
+            }
+            if (param["explode"] && param["explode"].IsScalar()) {
+                std::string explode = param["explode"].as<std::string>();
+                if (style == "matrix") {
+                    param["collectionFormat"] = "csv";
+                }
+                else if (style == "form") {
+                    param["collectionFormat"] = (explode == "false") ? "csv" : "multi";
+                }
+            }
+            if (style == "simple") {
                 param["collectionFormat"] = "csv";
             }
             else if (style == "spaceDelimited") {
@@ -439,9 +466,6 @@ void Converter::ConvertParameters(YAML::Node& obj)
             }
             else if (style == "pipeObject") {
                 param["collectionFormat"] = "multi";
-            }
-            else if (style == "form") {
-                param["collectionFormat"] = (param["explode"].as<std::string>() == "false") ? "csv" : "multi";
             }
         }
         param.remove("style");
@@ -507,7 +531,11 @@ void Converter::ConvertSecurityDefinitions() {
 }
 
 std::string Converter::Convert(const std::string& source) {
-    input = YAML::LoadFile(source);;
+    input = YAML::LoadFile(source);
+    if (input["components"]) {
+        components = YAML::Clone(input["components"]);
+    }
+
     ConvertInfos();
     ConvertOperations();
     if (input["components"]) {
@@ -519,18 +547,24 @@ std::string Converter::Convert(const std::string& source) {
 
         util::FixRefs(input);
     }
+
     YAML::Node result;
     result["info"] = input["info"];
     result["host"] = input["host"];
     result["basePath"] = input["basePath"];
     result["schemes"] = input["schemes"];
+    result["tags"] = input["tags"];
     result["paths"] = input["paths"];
     result["definitions"] = input["definitions"];
     result["securityDefinitions"] = input["securityDefinitions"];
+    result["security"] = input["security"];
+    result["x-ibm-configuration"] = input["x-ibm-configuration"];
     result["x-components"] = input["x-components"];
+    result["x-ibm-endpoints"] = input["x-ibm-endpoints"];
+
     YAML::Emitter out;
     out << result;
-    std::string str ="swagger: \"2.0\"\n";
+    std::string str = "swagger: \"2.0\"\n";
     str += out.c_str();
     return str;
 }
