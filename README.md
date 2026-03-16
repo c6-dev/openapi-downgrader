@@ -14,3 +14,9 @@ Loosely based on [api-spec-converter](https://github.com/LucyBot-Inc/api-spec-co
 
 Uses [yaml-cpp](https://github.com/jbeder/yaml-cpp).  
 Built using Visual Studio 2022.
+
+### Web Version
+
+A browser-based version is available that runs the conversion entirely client-side via WebAssembly (no server required). It can be hosted on GitHub Pages or any static file host.
+
+See [`wasm/README.md`](wasm/README.md) for build instructions.
