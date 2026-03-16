@@ -27,7 +27,7 @@ jobs:
         uses: mymindstorm/setup-emsdk@v14
 
       - name: Configure (emcmake cmake)
-        run: emcmake cmake -S wasm -B build-wasm
+        run: emcmake cmake -S wasm -B build-wasm -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build-wasm -j$(nproc)
