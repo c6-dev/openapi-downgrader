@@ -354,6 +354,7 @@ void Converter::ConvertResponses(YAML::Node& operation) {
                     resolved["format"] = resolved["schema"]["format"];
                     resolved.remove("schema");
                 }
+                resolved.remove("required");
                 headers[header] = resolved;
             }
         }
@@ -565,6 +566,9 @@ std::string Converter::RunConversion() {
     out << result;
     std::string str = "swagger: \"2.0\"\n";
     str += out.c_str();
+    // hacky, figure out a better way
+    str = std::regex_replace(str, std::regex(R"((format: )([0-9][0-9e.+\-]*)(\s))"), "$1\"$2\"$3");
+
     return str;
 }
 
