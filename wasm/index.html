@@ -149,16 +149,38 @@
       background: #e8f0fe;
       color: #1a56db;
     }
+	.github-link {
+	  position: absolute;
+	  top: 1rem;
+	  right: 1.5rem;
+	  font-size: 0.85rem;
+	  font-weight: 600;
+	}
+
+	.github-link a {
+	  text-decoration: none;
+	  color: #1a56db;
+	}
+
+	.github-link a:hover {
+	  text-decoration: underline;
+	}
 
     #file-input { display: none; }
   </style>
 </head>
 <body>
-
+	<div class="github-link">
+	  <a href="https://github.com/c6-dev/openapi-downgrader" target="_blank">
+		View source on GitHub
+	  </a>
+	</div>
   <header>
     <h1>OpenAPI 3.0 → Swagger 2.0 Converter</h1>
     <p>Conversion runs entirely in your browser — no data is uploaded anywhere.</p>
-  </header>
+	<p>The conversion is lossy so errors are possible. Always verify the output via editor.swagger.io or similar tools.</p>
+	  
+ </header>
 
   <div id="loading-banner">⏳ Loading WebAssembly module…</div>
   <div id="error-banner" class="hidden"></div>
