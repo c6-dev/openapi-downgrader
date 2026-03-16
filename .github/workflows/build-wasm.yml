@@ -1,0 +1,75 @@
+name: Build WebAssembly
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'code/**'
+      - 'wasm/**'
+  pull_request:
+    paths:
+      - 'code/**'
+      - 'wasm/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Wasm
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Emscripten SDK
+        uses: mymindstorm/setup-emsdk@v14
+
+      - name: Configure (emcmake cmake)
+        run: emcmake cmake -S wasm -B build-wasm
+
+      - name: Build
+        run: cmake --build build-wasm -j$(nproc)
+
+      - name: Prepare distribution files
+        run: |
+          mkdir -p dist
+          cp wasm/index.html        dist/
+          cp build-wasm/downgrader.js   dist/
+          cp build-wasm/downgrader.wasm dist/
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-dist
+          path: dist/
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-dist
+          path: dist/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

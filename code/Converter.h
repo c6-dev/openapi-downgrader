@@ -7,7 +7,9 @@
 class Converter {
 public:
     std::string Convert(const std::string& source);
+    std::string ConvertString(const std::string& yamlContent);
 private:
+    std::string RunConversion();
     YAML::Node input;
     YAML::Node components;
     void ConvertInfos();

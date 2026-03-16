@@ -1,4 +1,4 @@
-#include "converter.h"
+#include "Converter.h"
 #include "Util.h"
 #include <iostream>
 #include <regex>
@@ -530,8 +530,7 @@ void Converter::ConvertSecurityDefinitions() {
     input["components"].remove("securitySchemes");
 }
 
-std::string Converter::Convert(const std::string& source) {
-    input = YAML::LoadFile(source);
+std::string Converter::RunConversion() {
     if (input["components"]) {
         components = YAML::Clone(input["components"]);
     }
@@ -567,4 +566,14 @@ std::string Converter::Convert(const std::string& source) {
     std::string str = "swagger: \"2.0\"\n";
     str += out.c_str();
     return str;
+}
+
+std::string Converter::Convert(const std::string& source) {
+    input = YAML::LoadFile(source);
+    return RunConversion();
+}
+
+std::string Converter::ConvertString(const std::string& yamlContent) {
+    input = YAML::Load(yamlContent);
+    return RunConversion();
 }

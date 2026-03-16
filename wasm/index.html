@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenAPI 3.0 → Swagger 2.0 Converter</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f6fa;
+      color: #333;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+    }
+
+    header p {
+      margin-top: 0.4rem;
+      color: #666;
+      font-size: 0.9rem;
+    }
+
+    #loading-banner {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 6px;
+      padding: 0.6rem 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    #loading-banner.hidden { display: none; }
+
+    #error-banner {
+      background: #fdecea;
+      border: 1px solid #f44336;
+      border-radius: 6px;
+      padding: 0.6rem 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    #error-banner.hidden { display: none; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+
+    @media (max-width: 700px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      min-height: calc(0.85rem * 1.2 + 1rem); /* matches button height (padding + line-height) */
+    }
+
+    .panel-header label {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    textarea {
+      width: 100%;
+      height: 380px;
+      font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 0.8rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 0.6rem;
+      resize: vertical;
+      background: #fafafa;
+    }
+
+    textarea:focus { outline: none; border-color: #4a90e2; }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    button, label.file-btn {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: opacity 0.15s;
+    }
+
+    button:hover, label.file-btn:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    #convert-btn {
+      background: #4a90e2;
+      color: #fff;
+      flex: 1;
+    }
+
+    label.file-btn {
+      background: #e8f0fe;
+      color: #1a56db;
+      display: inline-block;
+    }
+
+    #download-btn {
+      background: #22c55e;
+      color: #fff;
+    }
+
+    #copy-btn {
+      background: #e8f0fe;
+      color: #1a56db;
+    }
+
+    #file-input { display: none; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>OpenAPI 3.0 → Swagger 2.0 Converter</h1>
+    <p>Conversion runs entirely in your browser — no data is uploaded anywhere.</p>
+  </header>
+
+  <div id="loading-banner">⏳ Loading WebAssembly module…</div>
+  <div id="error-banner" class="hidden"></div>
+
+  <div class="grid">
+    <!-- Input panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <label for="input-area">OpenAPI 3.0 input</label>
+        <label class="file-btn" for="file-input">📂 Upload file</label>
+        <input type="file" id="file-input" accept=".yaml,.yml,.json" />
+      </div>
+      <textarea id="input-area" placeholder="Paste OpenAPI 3.0 YAML or JSON here, or upload a file above…" spellcheck="false"></textarea>
+      <div class="btn-row">
+        <button id="convert-btn" disabled>Convert →</button>
+      </div>
+    </div>
+
+    <!-- Output panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <label for="output-area">Swagger 2.0 output</label>
+      </div>
+      <textarea id="output-area" readonly placeholder="Converted Swagger 2.0 YAML will appear here…" spellcheck="false"></textarea>
+      <div class="btn-row">
+        <button id="download-btn" disabled>⬇ Download .yaml</button>
+        <button id="copy-btn" disabled>📋 Copy to clipboard</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="downgrader.js"></script>
+  <script>
+    const loadingBanner = document.getElementById('loading-banner');
+    const errorBanner   = document.getElementById('error-banner');
+    const convertBtn    = document.getElementById('convert-btn');
+    const downloadBtn   = document.getElementById('download-btn');
+    const copyBtn       = document.getElementById('copy-btn');
+    const inputArea     = document.getElementById('input-area');
+    const outputArea    = document.getElementById('output-area');
+    const fileInput     = document.getElementById('file-input');
+
+    let wasmModule = null;
+
+    function showError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.classList.remove('hidden');
+    }
+
+    function clearError() {
+      errorBanner.textContent = '';
+      errorBanner.classList.add('hidden');
+    }
+
+    // Initialise the Wasm module
+    createModule().then(function(mod) {
+      wasmModule = mod;
+      loadingBanner.classList.add('hidden');
+      convertBtn.disabled = false;
+    }).catch(function(err) {
+      loadingBanner.classList.add('hidden');
+      showError('Failed to load WebAssembly module: ' + (err && err.message ? err.message : String(err)));
+    });
+
+    // File upload
+    fileInput.addEventListener('change', function() {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        inputArea.value = e.target.result;
+        clearError();
+      };
+      reader.onerror = function() { showError('Failed to read file.'); };
+      reader.readAsText(file);
+      // Reset so the same file can be re-uploaded
+      fileInput.value = '';
+    });
+
+    // Convert
+    convertBtn.addEventListener('click', function() {
+      clearError();
+      outputArea.value = '';
+      downloadBtn.disabled = true;
+      copyBtn.disabled = true;
+
+      const yaml = inputArea.value.trim();
+      if (!yaml) {
+        showError('Please paste or upload an OpenAPI 3.0 spec first.');
+        return;
+      }
+
+      try {
+        const result = wasmModule.convert(yaml);
+        outputArea.value = result;
+        downloadBtn.disabled = false;
+        copyBtn.disabled = false;
+      } catch (err) {
+        showError('Conversion error: ' + (err && err.message ? err.message : String(err)));
+      }
+    });
+
+    // Download
+    downloadBtn.addEventListener('click', function() {
+      const content = outputArea.value;
+      if (!content) return;
+      const blob = new Blob([content], { type: 'application/yaml' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'swagger2.yaml';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Copy to clipboard
+    copyBtn.addEventListener('click', function() {
+      const content = outputArea.value;
+      if (!content) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(content).then(function() {
+          const original = copyBtn.textContent;
+          copyBtn.textContent = '✅ Copied!';
+          setTimeout(function() { copyBtn.textContent = original; }, 1500);
+        }).catch(function() {
+          showError('Clipboard write failed. Please copy the output manually.');
+        });
+      } else {
+        showError('Clipboard API not available in this browser. Please select and copy the output manually.');
+      }
+    });
+  </script>
+</body>
+</html>
