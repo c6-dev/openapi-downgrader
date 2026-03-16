@@ -103,6 +103,12 @@
 
     textarea:focus { outline: none; border-color: #4a90e2; }
 
+    #input-area.drag-over {
+      border-color: #4a90e2;
+      background: #eef4fd;
+      outline: 2px dashed #4a90e2;
+    }
+
     .btn-row {
       display: flex;
       flex-wrap: wrap;
@@ -165,7 +171,7 @@
         <label class="file-btn" for="file-input">📂 Upload file</label>
         <input type="file" id="file-input" accept=".yaml,.yml,.json" />
       </div>
-      <textarea id="input-area" placeholder="Paste OpenAPI 3.0 YAML or JSON here, or upload a file above…" spellcheck="false"></textarea>
+      <textarea id="input-area" placeholder="Paste OpenAPI 3.0 YAML or JSON here, drag &amp; drop a file, or upload a file above…" spellcheck="false"></textarea>
       <div class="btn-row">
         <button id="convert-btn" disabled>Convert →</button>
       </div>
@@ -230,6 +236,37 @@
       reader.readAsText(file);
       // Reset so the same file can be re-uploaded
       fileInput.value = '';
+    });
+
+    // Drag and drop onto the input textarea
+    inputArea.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      inputArea.classList.add('drag-over');
+    });
+
+    inputArea.addEventListener('dragleave', function(e) {
+      if (e.relatedTarget === null || !inputArea.contains(e.relatedTarget)) {
+        inputArea.classList.remove('drag-over');
+      }
+    });
+
+    inputArea.addEventListener('drop', function(e) {
+      e.preventDefault();
+      inputArea.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      const name = file.name.toLowerCase();
+      if (!name.endsWith('.yaml') && !name.endsWith('.yml') && !name.endsWith('.json')) {
+        showError('Unsupported file type. Please drop a .yaml, .yml, or .json file.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        inputArea.value = ev.target.result;
+        clearError();
+      };
+      reader.onerror = function() { showError('Failed to read file.'); };
+      reader.readAsText(file);
     });
 
     // Convert
