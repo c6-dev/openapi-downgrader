@@ -76,7 +76,15 @@
       gap: 0.6rem;
     }
 
-    .panel label {
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      min-height: calc(0.85rem * 1.2 + 1rem); /* matches button height (padding + line-height) */
+    }
+
+    .panel-header label {
       font-weight: 600;
       font-size: 0.9rem;
     }
@@ -152,8 +160,8 @@
   <div class="grid">
     <!-- Input panel -->
     <div class="panel">
-      <label for="input-area">OpenAPI 3.0 input</label>
-      <div class="btn-row">
+      <div class="panel-header">
+        <label for="input-area">OpenAPI 3.0 input</label>
         <label class="file-btn" for="file-input">📂 Upload file</label>
         <input type="file" id="file-input" accept=".yaml,.yml,.json" />
       </div>
@@ -165,7 +173,9 @@
 
     <!-- Output panel -->
     <div class="panel">
-      <label for="output-area">Swagger 2.0 output</label>
+      <div class="panel-header">
+        <label for="output-area">Swagger 2.0 output</label>
+      </div>
       <textarea id="output-area" readonly placeholder="Converted Swagger 2.0 YAML will appear here…" spellcheck="false"></textarea>
       <div class="btn-row">
         <button id="download-btn" disabled>⬇ Download .yaml</button>
